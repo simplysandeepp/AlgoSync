@@ -77,29 +77,30 @@ async function generateDailyReport() {
         }
     }
     
-    let report = `🚀 *LeetCode Daily Status* 🚀\n_Keep the streak alive!_ 💯\n\n`;
+    let report = `🚀 LeetCode Daily Status @all\n\n`;
     
-    report += `🏆 *Completed Today*\n`;
+    report += `🏆 Completed Today\n`;
     if (completed.length > 0) {
         completed.forEach(u => report += `✅ ${u}\n`);
     } else {
-        report += `_No completions yet._ 🥲\n`;
+        report += `_No completions yet._\n`;
     }
     
-    report += `\n😴 *Still Pending*\n`;
+    report += `\n⏳ Still Pending\n`;
     if (pending.length > 0) {
         pending.forEach(u => report += `❌ ${u}\n`);
     } else {
-        report += `_Everyone has completed it!_ 🔥\n`;
+        report += `_Everyone has completed it!_\n`;
     }
     
     if (unavailable.length > 0) {
-        report += `\n🔒 *Unverified / Hidden Profiles*\n`;
+        report += `\n🔒 Hidden Profile\n`;
         unavailable.forEach(u => report += `🥷 ${u}\n`);
-        report += `_(Recent submissions may be hidden)_\n`;
     }
     
-    report += `\nLet's get those green dots! 🟩`;
+    report += `\n━━━━━━━━━━━━━━\n`;
+    report += `💪 Keep the streak alive!\n`;
+    report += `🟩 Let's get those green dots!`;
     
     return report;
 }

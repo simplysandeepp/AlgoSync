@@ -96,7 +96,7 @@ app.post('/send-reminder', async (req, res) => {
         
         // Send message and tag everyone
         await sock.sendMessage(GROUP_JID, { 
-            text: "@everyone\n\n" + reportMessage,
+            text: reportMessage,
             mentions: allParticipants 
         });
         
