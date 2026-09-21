@@ -1,0 +1,116 @@
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const makeWASocket = require('@whiskeysockets/baileys').default;
+const { DisconnectReason, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+const pino = require('pino');
+const qrcode = require('qrcode-terminal');
+const { useMongoDBAuthState } = require('./auth');
+
+const app = express();
+app.use(express.json());
+
+const PORT = process.env.PORT || 3000;
+const MONGO_URI = process.env.MONGO_URI;
+const GROUP_JID = process.env.GROUP_JID; 
+const CRON_SECRET = process.env.CRON_SECRET; 
+
+let sock;
+let isConnected = false;
+
+// Connect to MongoDB
+mongoose.connect(MONGO_URI)
+    .then(() => console.log('Connected to MongoDB!'))
+    .catch(err => console.error('MongoDB connection error:', err));
+
+async function connectToWhatsApp() {
+    const { state, saveCreds } = await useMongoDBAuthState();
+
+    sock = makeWASocket({
+        auth: state,
+        logger: pino({ level: 'silent' }), // Set to 'info' or 'debug' for more logs
+        printQRInTerminal: true,
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
+
+        if (qr) {
+            console.log("Scan this QR code with your secondary WhatsApp number!");
+            qrcode.generate(qr, { small: true });
+        }
+
+        if (connection === 'close') {
+            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            console.log('Connection closed due to ', lastDisconnect?.error, ', reconnecting ', shouldReconnect);
+            
+            isConnected = false;
+            
+            if (shouldReconnect) {
+                connectToWhatsApp();
+            } else {
+                console.log("You have been logged out. Please restart and scan the QR again.");
+            }
+        } else if (connection === 'open') {
+            console.log('Successfully connected to WhatsApp!');
+            isConnected = true;
+        }
+    });
+
+    // You can listen to incoming messages here if you want to find the Group JID easily
+    sock.ev.on('messages.upsert', async (m) => {
+        const msg = m.messages[0];
+        if (!msg.key.fromMe && m.type === 'notify') {
+            // Uncomment this to print the Group JID when someone sends a message in the group
+            console.log("Received message from JID:", msg.key.remoteJid);
+        }
+    });
+}
+
+const { generateDailyReport } = require('./leetcode');
+
+// Express Endpoint for cron-job.org to hit
+app.post('/send-reminder', async (req, res) => {
+    const providedSecret = req.headers['x-cron-secret'] || req.query.secret;
+    
+    if (providedSecret !== CRON_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!isConnected || !sock) {
+        return res.status(503).json({ error: 'WhatsApp is not connected yet.' });
+    }
+
+    if (!GROUP_JID) {
+        return res.status(500).json({ error: 'GROUP_JID is not configured in .env' });
+    }
+
+    try {
+        const reportMessage = await generateDailyReport();
+        await sock.sendMessage(GROUP_JID, { text: reportMessage });
+        console.log("Reminder sent successfully!");
+        res.json({ success: true, message: "Reminder sent!" });
+    } catch (error) {
+        console.error("Failed to send message:", error);
+        res.status(500).json({ error: 'Failed to send message' });
+    }
+});
+
+// A simple health check route for Render
+app.get('/', (req, res) => {
+    res.send(`WhatsApp Bot is Running! Status: ${isConnected ? 'Connected' : 'Disconnected'}`);
+});
+
+app.listen(PORT, async () => {
+    console.log(`Express server running on port ${PORT}`);
+    // Start WhatsApp connection once the server starts
+    if (mongoose.connection.readyState === 1) {
+        connectToWhatsApp();
+    } else {
+         mongoose.connection.once('open', () => {
+            connectToWhatsApp();
+         });
+    }
+});
