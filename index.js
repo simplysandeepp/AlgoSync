@@ -89,8 +89,18 @@ app.post('/send-reminder', async (req, res) => {
 
     try {
         const reportMessage = await generateDailyReport();
-        await sock.sendMessage(GROUP_JID, { text: reportMessage });
-        console.log("Reminder sent successfully!");
+        
+        // Fetch group metadata to get all members for @all feature
+        const groupMetadata = await sock.groupMetadata(GROUP_JID);
+        const allParticipants = groupMetadata.participants.map(p => p.id);
+        
+        // Send message and tag everyone
+        await sock.sendMessage(GROUP_JID, { 
+            text: "@everyone\n\n" + reportMessage,
+            mentions: allParticipants 
+        });
+        
+        console.log("Reminder sent successfully with @all mention!");
         res.json({ success: true, message: "Reminder sent!" });
     } catch (error) {
         console.error("Failed to send message:", error);
