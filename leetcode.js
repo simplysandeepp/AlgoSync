@@ -33,13 +33,13 @@ async function checkUserSolvedToday(username) {
         
         if (data.errors) {
             console.error(`Error fetching for ${username}:`, data.errors[0].message);
-            return false;
+            return null; // Null means error or unavailable
         }
 
         const submissions = data.data.recentAcSubmissionList;
         
         if (!submissions || submissions.length === 0) {
-            return false; // No submissions ever
+            return null; // Null means private profile or literally zero submissions ever
         }
 
         // Get the timestamp of the latest submission
@@ -56,34 +56,50 @@ async function checkUserSolvedToday(username) {
         
     } catch (error) {
         console.error(`Failed to fetch LeetCode data for ${username}:`, error);
-        return false; // Assume not solved on error so they get reminded!
+        return null; // Assume unavailable on error
     }
 }
 
 async function generateDailyReport() {
-    let report = `*📊 Daily LeetCode Report*\n\n`;
-    
-    let allSolved = true;
+    let completed = [];
+    let pending = [];
+    let unavailable = [];
     
     for (const username of USERNAMES) {
-        // You can change 'username' to 'Real Name' here if you want a mapping
-        const hasSolved = await checkUserSolvedToday(username);
+        const status = await checkUserSolvedToday(username);
         
-        if (hasSolved) {
-            report += `✅ ${username}\n`;
+        if (status === true) {
+            completed.push(username);
+        } else if (status === false) {
+            pending.push(username);
         } else {
-            report += `❌ ${username}\n`;
-            allSolved = false;
+            unavailable.push(username);
         }
     }
     
-    report += `\n`;
+    let report = `🚀 *LeetCode Daily Status* 🚀\n_Keep the streak alive!_ 💯\n\n`;
     
-    if (allSolved) {
-        report += `🔥 Excellent work team! Everyone solved a problem today!`;
+    report += `🏆 *Completed Today*\n`;
+    if (completed.length > 0) {
+        completed.forEach(u => report += `✅ ${u}\n`);
     } else {
-        report += `⚠️ Reminder for those with '❌': Please complete your daily LeetCode challenge!`;
+        report += `_No completions yet._ 🥲\n`;
     }
+    
+    report += `\n😴 *Still Pending*\n`;
+    if (pending.length > 0) {
+        pending.forEach(u => report += `❌ ${u}\n`);
+    } else {
+        report += `_Everyone has completed it!_ 🔥\n`;
+    }
+    
+    if (unavailable.length > 0) {
+        report += `\n🔒 *Unverified / Hidden Profiles*\n`;
+        unavailable.forEach(u => report += `🥷 ${u}\n`);
+        report += `_(Recent submissions may be hidden)_\n`;
+    }
+    
+    report += `\nLet's get those green dots! 🟩`;
     
     return report;
 }
