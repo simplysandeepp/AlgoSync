@@ -10,6 +10,13 @@ const { useMongoDBAuthState } = require('./auth');
 const app = express();
 app.use(express.json());
 
+process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught exception:', error);
+});
+
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 const GROUP_JID = process.env.GROUP_JID; 
@@ -79,6 +86,11 @@ app.post('/send-reminder', async (req, res) => {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    // Reconnects can take a few seconds after a cold start or a dropped
+    // socket; wait briefly instead of failing the cron hit immediately.
+    for (let attempt = 0; attempt < 6 && (!isConnected || !sock); attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
     if (!isConnected || !sock) {
         return res.status(503).json({ error: 'WhatsApp is not connected yet.' });
     }
