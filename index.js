@@ -125,6 +125,16 @@ app.get('/', (req, res) => {
     res.send(`WhatsApp Bot is Running! Status: ${isConnected ? 'Connected' : 'Disconnected'}`);
 });
 
+// Render's free tier sleeps after 15 min without inbound traffic, which made
+// the 10 PM cron hit a sleeping instance. Pinging our own public URL keeps it awake.
+const KEEP_ALIVE_URL = process.env.RENDER_EXTERNAL_URL;
+if (KEEP_ALIVE_URL) {
+    const fetch = require('node-fetch');
+    setInterval(() => {
+        fetch(KEEP_ALIVE_URL).catch((error) => console.error('Keep-alive ping failed:', error.message));
+    }, 10 * 60 * 1000);
+}
+
 app.listen(PORT, async () => {
     console.log(`Express server running on port ${PORT}`);
     // Start WhatsApp connection once the server starts
