@@ -122,33 +122,24 @@ async function generateDailyReport() {
     const pending = statuses.filter(([, s]) => s === 'pending').map(([u]) => u);
     const unverified = statuses.filter(([, s]) => s === 'unverified').map(([u]) => u);
 
-    let report = `🚀 LeetCode Daily Status @all\n\n`;
-    report += `Today's challenge: ${daily.title}\n\n`;
-
-    report += `🏆 Completed Today\n`;
-    if (completed.length > 0) {
-        completed.forEach(u => report += `✅ ${u}\n`);
-    } else {
-        report += `_No completions yet._\n`;
-    }
-
-    report += `\n⏳ Still Pending\n`;
-    if (pending.length > 0) {
-        pending.forEach(u => report += `❌ ${u}\n`);
-    } else {
-        report += `_Everyone has completed it!_\n`;
-    }
-
-    if (unverified.length > 0) {
-        report += `\n🔒 Couldn't verify (LeetCode didn't return submissions)\n`;
-        unverified.forEach(u => report += `🥷 ${u}\n`);
-    }
-
-    report += `\n━━━━━━━━━━━━━━\n`;
-    report += `💪 Keep the streak alive!\n`;
-    report += `🟩 Let's get those green dots!`;
-
-    return report;
+    // Same template as the Telegram message (scripts/check-leetcode-daily.js).
+    const list = (users, emptyText) => users.length ? users.map((u) => `• @${u}`).join('\n') : emptyText;
+    return [
+        '📚 LeetCode Daily Check-in',
+        `Today's challenge: ${daily.title}`,
+        'There is still time—keep your streak going.',
+        '',
+        '🥳 Completed',
+        list(completed, 'No completions yet.'),
+        '',
+        'Still Pending 👀',
+        list(pending, 'Everyone has completed it.'),
+        '',
+        '🔒 Couldn\'t verify',
+        unverified.length
+            ? unverified.map((u) => `• @${u} — recent submissions may be hidden.`).join('\n')
+            : 'No verification issues.',
+    ].join('\n');
 }
 
 module.exports = { generateDailyReport, USERNAMES };
